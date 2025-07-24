@@ -12,6 +12,7 @@ const PortfolioTracker = () => {
   const [expenses, setExpenses] = useState([]);
   const [history, setHistory] = useState([]);
   const [chartData, setChartData] = useState([]);
+  const [exchangeRate, setExchangeRate] = useState(0.000065);
 
   const allocation = {
     BBCA: 0.25,
@@ -21,9 +22,22 @@ const PortfolioTracker = () => {
   };
 
   const convertCurrency = (amount) => {
-    const rate = 0.000065; // example rate IDR to USD
-    return currency === "IDR" ? amount : amount * rate;
+    return currency === "IDR" ? amount : amount * exchangeRate;
   };
+
+  const fetchExchangeRate = async () => {
+    try {
+      const res = await fetch("https://api.exchangerate.host/latest?base=IDR&symbols=USD");
+      const data = await res.json();
+      setExchangeRate(data.rates.USD);
+    } catch (error) {
+      console.error("Failed to fetch exchange rate", error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchExchangeRate();
+  }, [currency]);
 
   const handleTopUp = (amount) => {
     const numericAmount = parseFloat(amount);
@@ -54,7 +68,7 @@ const PortfolioTracker = () => {
   };
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 bg-gray-50 min-h-screen">
       <div className="flex items-center space-x-4">
         <Select onValueChange={setCurrency} defaultValue="IDR">
           <SelectTrigger className="w-[100px]">
@@ -65,7 +79,9 @@ const PortfolioTracker = () => {
             <SelectItem value="USD">USD</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-xl font-semibold">Total Equity: {currency === "IDR" ? "Rp" : "$"}{convertCurrency(equity).toLocaleString()}</span>
+        <span className="text-xl font-semibold">
+          Total Equity: {currency === "IDR" ? "Rp" : "$"}{convertCurrency(equity).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        </span>
       </div>
 
       <div className="flex space-x-4">
@@ -89,7 +105,7 @@ const PortfolioTracker = () => {
           <h2 className="text-lg font-semibold mb-2">Portfolio Allocation</h2>
           <ul className="list-disc pl-4">
             {Object.entries(allocation).map(([asset, percent]) => (
-              <li key={asset}>{asset}: {currency === "IDR" ? "Rp" : "$"}{convertCurrency(equity * percent).toLocaleString()}</li>
+              <li key={asset}>{asset}: {currency === "IDR" ? "Rp" : "$"}{convertCurrency(equity * percent).toLocaleString(undefined, { maximumFractionDigits: 2 })}</li>
             ))}
           </ul>
         </CardContent>
@@ -101,7 +117,7 @@ const PortfolioTracker = () => {
           <ul className="pl-4 space-y-1">
             {history.map((tx, idx) => (
               <li key={idx}>
-                [{tx.date}] {tx.type}: {tx.description ? tx.description + " - " : ""}{currency === "IDR" ? "Rp" : "$"}{convertCurrency(tx.amount).toLocaleString()}
+                [{tx.date}] {tx.type}: {tx.description ? tx.description + " - " : ""}{currency === "IDR" ? "Rp" : "$"}{convertCurrency(tx.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </li>
             ))}
           </ul>
@@ -117,7 +133,7 @@ const PortfolioTracker = () => {
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
-              <Line type="monotone" dataKey="equity" stroke="#8884d8" strokeWidth={2} />
+              <Line type="monotone" dataKey="equity" stroke="#2f4f4f" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
