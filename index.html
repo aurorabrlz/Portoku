@@ -2,8 +2,8 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Portfolio Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -49,8 +49,15 @@
 
   <script>
     let currency = localStorage.getItem("currency") || "IDR";
-    let portfolio = JSON.parse(localStorage.getItem("portfolio")) || [];
     let history = JSON.parse(localStorage.getItem("history")) || [];
+
+    // Alokasi default
+    const allocation = [
+      { name: "BBCA", percent: 0.25 },
+      { name: "GOOGL", percent: 0.25 },
+      { name: "BTC", percent: 0.30 },
+      { name: "CASH", percent: 0.20 }
+    ];
 
     function switchCurrency() {
       currency = document.getElementById("currencySelect").value;
@@ -67,18 +74,24 @@
     }
 
     function save() {
-      localStorage.setItem("portfolio", JSON.stringify(portfolio));
       localStorage.setItem("history", JSON.stringify(history));
       render();
     }
 
     function render() {
       document.getElementById("currencySelect").value = currency;
-      document.getElementById("portfolioDisplay").innerHTML = `<h2 class="text-xl font-bold mb-2">Equity</h2><p>${formatCurrency(getTotalEquity())}</p>`;
+
+      const totalEquity = getTotalEquity();
+      let portfolioHTML = `<h2 class="text-xl font-bold mb-2">Equity</h2><p class="mb-4">${formatCurrency(totalEquity)}</p><h3 class="font-semibold mb-2">Alokasi:</h3>`;
+      allocation.forEach(item => {
+        const value = totalEquity * item.percent;
+        portfolioHTML += `<p>${item.name}: ${formatCurrency(value)} (${(item.percent * 100).toFixed(0)}%)</p>`;
+      });
+      document.getElementById("portfolioDisplay").innerHTML = portfolioHTML;
 
       let historyHTML = '<h2 class="text-xl font-bold mb-2">History</h2>';
       history.slice().reverse().forEach(entry => {
-        historyHTML += `<p>${entry.date} - ${entry.type} - ${formatCurrency(entry.amount)}</p>`;
+        historyHTML += `<p>${entry.date.split("T")[0]} - ${entry.type} - ${formatCurrency(entry.amount)}</p>`;
       });
       document.getElementById("historyDisplay").innerHTML = historyHTML;
     }
@@ -88,24 +101,23 @@
     }
 
     function formatCurrency(amount) {
-      return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
+      return new Intl.NumberFormat(currency === "USD" ? "en-US" : "id-ID", {
+        style: "currency",
         currency: currency,
       }).format(amount);
     }
 
     function downloadBackup() {
       const data = {
-        portfolio: localStorage.getItem("portfolio"),
         history: localStorage.getItem("history"),
-        currency: localStorage.getItem("currency")
+        currency: localStorage.getItem("currency"),
       };
 
       const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `portofolio_backup_${new Date().toISOString().split("T")[0]}.json`;
+      a.download = `portfolio_backup_${new Date().toISOString().split("T")[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -118,11 +130,8 @@
       reader.onload = function (e) {
         try {
           const data = JSON.parse(e.target.result);
-
-          if (data.portfolio) localStorage.setItem("portfolio", data.portfolio);
           if (data.history) localStorage.setItem("history", data.history);
           if (data.currency) localStorage.setItem("currency", data.currency);
-
           alert("Data berhasil diimpor!");
           location.reload();
         } catch (err) {
