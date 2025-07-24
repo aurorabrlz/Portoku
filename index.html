@@ -1,232 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Portofolio Tracker</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f6f7f9;
-        color: #333;
-        margin: 0;
-        padding: 20px;
-      }
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-      }
-      h1 {
-        text-align: center;
-      }
-      .portfolio-table,
-      .history-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
-      }
-      .portfolio-table th,
-      .portfolio-table td,
-      .history-table th,
-      .history-table td {
-        border: 1px solid #ccc;
-        padding: 8px;
-        text-align: center;
-      }
-      .input-group {
-        margin-bottom: 10px;
-      }
-      .input-group input,
-      .input-group select {
-        padding: 8px;
-        width: calc(100% - 16px);
-      }
-      button {
-        padding: 10px 20px;
-        margin: 5px 0;
-        cursor: pointer;
-      }
-      .currency-toggle {
-        margin-bottom: 20px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h1>Portofolio Tracker</h1>
 
-      <div class="currency-toggle">
-        <label>
-          <input type="radio" name="currency" value="IDR" checked /> IDR
-        </label>
-        <label>
-          <input type="radio" name="currency" value="USD" /> USD
-        </label>
-      </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
 
-      <table class="portfolio-table">
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th>Percentage</th>
-            <th>Allocation</th>
-          </tr>
-        </thead>
-        <tbody id="portfolio-body"></tbody>
-      </table>
+<body class="bg-gray-100 text-gray-800">
+  <div class="max-w-3xl mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-6 text-center">Portfolio Tracker</h1>
 
-      <div class="input-group">
-        <input id="topup-value" type="number" placeholder="Top Up (Equity)" />
-        <button onclick="handleTopup()">Top Up</button>
-      </div>
-
-      <div class="input-group">
-        <input id="expense-value" type="number" placeholder="Pengeluaran" />
-        <input id="expense-note" type="text" placeholder="Catatan" />
-        <button onclick="handleExpense()">Tambah Pengeluaran</button>
-      </div>
-
-      <table class="history-table">
-        <thead>
-          <tr>
-            <th>Tanggal</th>
-            <th>Jenis</th>
-            <th>Jumlah</th>
-            <th>Catatan</th>
-          </tr>
-        </thead>
-        <tbody id="history-body"></tbody>
-      </table>
-
-      <button onclick="handleBackup()">Backup Manual</button>
-      <input type="file" onchange="handleUpload(event)" />
+    <!-- Currency Switch -->
+    <div class="mb-4">
+      <label for="currencySelect" class="block font-semibold mb-1">Pilih Mata Uang:</label>
+      <select id="currencySelect" onchange="switchCurrency()" class="w-full p-2 rounded border">
+        <option value="IDR">IDR</option>
+        <option value="USD">USD</option>
+      </select>
     </div>
 
-    <script>
-      const allocations = {
-        BBCA: 30,
-        GOOGL: 25,
-        BTC: 15,
-        CASH: 30,
+    <!-- Equity Input -->
+    <div class="mb-4">
+      <label for="topupInput" class="block font-semibold mb-1">Top Up:</label>
+      <input type="number" id="topupInput" placeholder="Jumlah top up" class="w-full p-2 rounded border">
+      <button onclick="addTopup()" class="bg-blue-500 text-white px-4 py-2 rounded mt-2 hover:bg-blue-600">Tambah</button>
+    </div>
+
+    <!-- Portfolio Display -->
+    <div id="portfolioDisplay" class="bg-white p-4 rounded shadow mb-6"></div>
+
+    <!-- History Display -->
+    <div id="historyDisplay" class="bg-white p-4 rounded shadow mb-6"></div>
+
+    <!-- Backup & Import -->
+    <div class="flex gap-2 mt-4">
+      <button onclick="downloadBackup()" class="bg-green-600 text-white px-4 py-2 rounded-xl shadow hover:bg-green-700">
+        Backup Data
+      </button>
+
+      <label for="importFile" class="bg-blue-600 text-white px-4 py-2 rounded-xl shadow hover:bg-blue-700 cursor-pointer">
+        Import Data
+        <input type="file" id="importFile" accept=".json" onchange="importData(event)" class="hidden" />
+      </label>
+    </div>
+  </div>
+
+  <script>
+    let currency = localStorage.getItem("currency") || "IDR";
+    let portfolio = JSON.parse(localStorage.getItem("portfolio")) || [];
+    let history = JSON.parse(localStorage.getItem("history")) || [];
+
+    function switchCurrency() {
+      currency = document.getElementById("currencySelect").value;
+      localStorage.setItem("currency", currency);
+      render();
+    }
+
+    function addTopup() {
+      const amount = parseFloat(document.getElementById("topupInput").value);
+      if (!isNaN(amount)) {
+        history.push({ type: 'topup', amount, date: new Date().toISOString() });
+        save();
+      }
+    }
+
+    function save() {
+      localStorage.setItem("portfolio", JSON.stringify(portfolio));
+      localStorage.setItem("history", JSON.stringify(history));
+      render();
+    }
+
+    function render() {
+      document.getElementById("currencySelect").value = currency;
+      document.getElementById("portfolioDisplay").innerHTML = `<h2 class="text-xl font-bold mb-2">Equity</h2><p>${formatCurrency(getTotalEquity())}</p>`;
+
+      let historyHTML = '<h2 class="text-xl font-bold mb-2">History</h2>';
+      history.slice().reverse().forEach(entry => {
+        historyHTML += `<p>${entry.date} - ${entry.type} - ${formatCurrency(entry.amount)}</p>`;
+      });
+      document.getElementById("historyDisplay").innerHTML = historyHTML;
+    }
+
+    function getTotalEquity() {
+      return history.reduce((sum, item) => sum + item.amount, 0);
+    }
+
+    function formatCurrency(amount) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: currency,
+      }).format(amount);
+    }
+
+    function downloadBackup() {
+      const data = {
+        portfolio: localStorage.getItem("portfolio"),
+        history: localStorage.getItem("history"),
+        currency: localStorage.getItem("currency")
       };
 
-      let equity = parseFloat(localStorage.getItem("equity")) || 0;
-      let history = JSON.parse(localStorage.getItem("history") || "[]");
-      let currentCurrency = localStorage.getItem("currency") || "IDR";
-      let rates = { USD: 1, IDR: 16000 };
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `portofolio_backup_${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
 
-      async function fetchRates() {
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
         try {
-          const res = await axios.get(
-            "https://api.exchangerate.host/latest?base=USD&symbols=IDR"
-          );
-          rates.IDR = res.data.rates.IDR;
-          renderPortfolio();
+          const data = JSON.parse(e.target.result);
+
+          if (data.portfolio) localStorage.setItem("portfolio", data.portfolio);
+          if (data.history) localStorage.setItem("history", data.history);
+          if (data.currency) localStorage.setItem("currency", data.currency);
+
+          alert("Data berhasil diimpor!");
+          location.reload();
         } catch (err) {
-          console.error("Failed to fetch rates");
+          alert("File tidak valid atau rusak.");
         }
-      }
+      };
+      reader.readAsText(file);
+    }
 
-      function renderPortfolio() {
-        const tbody = document.getElementById("portfolio-body");
-        tbody.innerHTML = "";
-        Object.entries(allocations).forEach(([asset, percent]) => {
-          const allocation = (equity * percent) / 100;
-          const value = currencySymbol() + formatCurrency(allocation);
-          const row = `<tr><td>${asset}</td><td>${percent}%</td><td>${value}</td></tr>`;
-          tbody.innerHTML += row;
-        });
-      }
+    render();
+  </script>
+</body>
 
-      function currencySymbol() {
-        return currentCurrency === "IDR" ? "Rp" : "$";
-      }
-
-      function formatCurrency(val) {
-        const rate = currentCurrency === "IDR" ? rates.IDR : 1;
-        return (val * rate).toLocaleString();
-      }
-
-      function handleTopup() {
-        const amount = parseFloat(document.getElementById("topup-value").value);
-        if (!amount) return;
-        equity += amount;
-        history.push({ type: "Top Up", amount, note: "", date: new Date().toISOString() });
-        save();
-      }
-
-      function handleExpense() {
-        const amount = parseFloat(document.getElementById("expense-value").value);
-        const note = document.getElementById("expense-note").value;
-        if (!amount) return;
-        equity -= amount;
-        history.push({ type: "Pengeluaran", amount, note, date: new Date().toISOString() });
-        save();
-      }
-
-      function save() {
-        localStorage.setItem("equity", equity);
-        localStorage.setItem("history", JSON.stringify(history));
-        renderPortfolio();
-        renderHistory();
-      }
-
-      function renderHistory() {
-        const tbody = document.getElementById("history-body");
-        tbody.innerHTML = "";
-        history.forEach((item) => {
-          const row = `<tr><td>${new Date(item.date).toLocaleString()}</td><td>${item.type}</td><td>${currencySymbol()}${formatCurrency(item.amount)}</td><td>${item.note || "-"}</td></tr>`;
-          tbody.innerHTML += row;
-        });
-      }
-
-      function handleBackup() {
-        const data = {
-          equity,
-          history,
-          currency: currentCurrency,
-        };
-        const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "backup_portfolio.json";
-        link.click();
-      }
-
-      function handleUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          try {
-            const data = JSON.parse(event.target.result);
-            equity = data.equity;
-            history = data.history;
-            currentCurrency = data.currency;
-            localStorage.setItem("currency", currentCurrency);
-            save();
-          } catch (e) {
-            alert("Invalid file format!");
-          }
-        };
-        reader.readAsText(file);
-      }
-
-      document.querySelectorAll("input[name='currency']").forEach((el) => {
-        el.addEventListener("change", (e) => {
-          currentCurrency = e.target.value;
-          localStorage.setItem("currency", currentCurrency);
-          renderPortfolio();
-          renderHistory();
-        });
-      });
-
-      fetchRates();
-      renderPortfolio();
-      renderHistory();
-    </script>
-  </body>
 </html>
