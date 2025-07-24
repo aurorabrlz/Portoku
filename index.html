@@ -52,6 +52,13 @@
     let portfolio = JSON.parse(localStorage.getItem("portfolio")) || [];
     let history = JSON.parse(localStorage.getItem("history")) || [];
 
+    const allocation = {
+      BBCA: 0.25,
+      GOOGL: 0.25,
+      BTC: 0.20,
+      CASH: 0.30
+    };
+
     function switchCurrency() {
       currency = document.getElementById("currencySelect").value;
       localStorage.setItem("currency", currency);
@@ -62,8 +69,17 @@
       const amount = parseFloat(document.getElementById("topupInput").value);
       if (!isNaN(amount)) {
         history.push({ type: 'topup', amount, date: new Date().toISOString() });
+        allocateTopup(amount);
         save();
       }
+    }
+
+    function allocateTopup(amount) {
+      const newPortfolio = { date: new Date().toISOString(), BBCA: 0, GOOGL: 0, BTC: 0, CASH: 0 };
+      for (let key in allocation) {
+        newPortfolio[key] = amount * allocation[key];
+      }
+      portfolio.push(newPortfolio);
     }
 
     function save() {
@@ -80,6 +96,15 @@
       history.slice().reverse().forEach(entry => {
         historyHTML += `<p>${entry.date} - ${entry.type} - ${formatCurrency(entry.amount)}</p>`;
       });
+
+      if (portfolio.length > 0) {
+        const last = portfolio[portfolio.length - 1];
+        historyHTML += '<h3 class="text-lg font-semibold mt-4">Alokasi Terakhir:</h3>';
+        for (let key in allocation) {
+          historyHTML += `<p>${key}: ${formatCurrency(last[key])}</p>`;
+        }
+      }
+
       document.getElementById("historyDisplay").innerHTML = historyHTML;
     }
 
