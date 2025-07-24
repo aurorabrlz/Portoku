@@ -1,198 +1,129 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My Portfolio Wallet</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 2rem;
-      background-color: #f4f4f4;
-    }
-    .card {
-      background: white;
-      padding: 1.5rem;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      margin-bottom: 1.5rem;
-    }
-    .flex {
-      display: flex;
-      justify-content: space-between;
-    }
-    .title {
-      font-size: 1.2rem;
-      font-weight: bold;
-      margin-bottom: 1rem;
-    }
-    input, select {
-      padding: 0.5rem;
-      width: 100%;
-      margin-bottom: 0.5rem;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      background: #eee;
-      padding: 0.5rem;
-      margin-bottom: 0.5rem;
-      border-radius: 5px;
-    }
-    .total-equity {
-      font-size: 1.5rem;
-      font-weight: bold;
-      margin-bottom: 1rem;
-      color: #333;
-    }
-    .currency-toggle {
-      margin-bottom: 1.5rem;
-    }
-  </style>
-</head>
-<body>
-  <h1>My Portfolio Wallet</h1>
+// Import necessary libraries
+import React, { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-  <div class="currency-toggle">
-    <label for="currency">Display Currency:</label>
-    <select id="currency" onchange="updatePortfolio()">
-      <option value="USD">USD ($)</option>
-      <option value="IDR">IDR (Rp)</option>
-    </select>
-  </div>
+const PortfolioTracker = () => {
+  const [currency, setCurrency] = useState("IDR");
+  const [equity, setEquity] = useState(0);
+  const [expenses, setExpenses] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [chartData, setChartData] = useState([]);
 
-  <div class="total-equity" id="totalEquity"></div>
+  const allocation = {
+    BBCA: 0.25,
+    GOOGL: 0.25,
+    BTC: 0.3,
+    CASH: 0.2,
+  };
 
-  <div class="card">
-    <div class="title">Top Up Equity</div>
-    <input type="number" id="topup" placeholder="Amount to top up...">
-    <button onclick="topUp()">Add</button>
-  </div>
+  const convertCurrency = (amount) => {
+    const rate = 0.000065; // example rate IDR to USD
+    return currency === "IDR" ? amount : amount * rate;
+  };
 
-  <div class="card">
-    <div class="title">Withdraw Funds</div>
-    <input type="number" id="withdraw" placeholder="Amount to withdraw...">
-    <button onclick="withdrawFunds()">Withdraw</button>
-  </div>
-
-  <div class="card">
-    <div class="title">Add Expense</div>
-    <input type="text" id="expenseNote" placeholder="Expense description">
-    <input type="number" id="expenseAmount" placeholder="Amount spent...">
-    <button onclick="addExpense()">Add Expense</button>
-  </div>
-
-  <div class="card">
-    <div class="title">Portfolio Allocation</div>
-    <ul id="portfolio"></ul>
-  </div>
-
-  <div class="card">
-    <div class="title">Transaction History</div>
-    <ul id="history"></ul>
-  </div>
-
-  <script>
-    const allocation = {
-      BBCA: 0.3,
-      GOOGL: 0.25,
-      BTC: 0.15,
-      CASH: 0.3
-    };
-
-    let equity = parseFloat(localStorage.getItem('equity')) || 0;
-    let history = JSON.parse(localStorage.getItem('history')) || [];
-
-    function formatCurrency(amount) {
-      const currency = document.getElementById('currency').value;
-      if (currency === 'IDR') {
-        return 'Rp' + amount.toLocaleString('id-ID');
-      } else {
-        return '$' + amount.toFixed(2);
-      }
+  const handleTopUp = (amount) => {
+    const numericAmount = parseFloat(amount);
+    if (!isNaN(numericAmount)) {
+      const newEquity = equity + numericAmount;
+      setEquity(newEquity);
+      setHistory([...history, { type: "Top Up", amount: numericAmount, date: new Date().toLocaleString() }]);
+      setChartData([...chartData, { date: new Date().toLocaleDateString(), equity: newEquity }]);
     }
+  };
 
-    function updatePortfolio() {
-      const ul = document.getElementById('portfolio');
-      ul.innerHTML = '';
-      for (const key in allocation) {
-        const value = allocation[key] * equity;
-        const li = document.createElement('li');
-        li.textContent = `${key}: ${formatCurrency(value)}`;
-        ul.appendChild(li);
-      }
-      document.getElementById('totalEquity').textContent = `Total Equity: ${formatCurrency(equity)}`;
+  const handleWithdraw = (amount) => {
+    const numericAmount = parseFloat(amount);
+    if (!isNaN(numericAmount) && numericAmount <= equity) {
+      const newEquity = equity - numericAmount;
+      setEquity(newEquity);
+      setHistory([...history, { type: "Withdraw", amount: numericAmount, date: new Date().toLocaleString() }]);
+      setChartData([...chartData, { date: new Date().toLocaleDateString(), equity: newEquity }]);
     }
+  };
 
-    function addToHistory(type, amount, note = '') {
-      const currency = document.getElementById('currency').value;
-      const now = new Date().toLocaleString();
-      const formattedAmount = currency === 'IDR' ? 'Rp' + amount.toLocaleString('id-ID') : '$' + amount.toFixed(2);
-      const entry = note ? `${now} - ${type}: ${formattedAmount} (${note})` : `${now} - ${type}: ${formattedAmount}`;
-      history.unshift(entry);
-      localStorage.setItem('history', JSON.stringify(history));
-      renderHistory();
+  const handleExpense = (description, amount) => {
+    const numericAmount = parseFloat(amount);
+    if (!isNaN(numericAmount)) {
+      setExpenses([...expenses, { description, amount: numericAmount, date: new Date().toLocaleString() }]);
+      setHistory([...history, { type: "Expense", description, amount: numericAmount, date: new Date().toLocaleString() }]);
     }
+  };
 
-    function renderHistory() {
-      const ul = document.getElementById('history');
-      ul.innerHTML = '';
-      history.forEach(entry => {
-        const li = document.createElement('li');
-        li.textContent = entry;
-        ul.appendChild(li);
-      });
-    }
+  return (
+    <div className="p-4 space-y-6">
+      <div className="flex items-center space-x-4">
+        <Select onValueChange={setCurrency} defaultValue="IDR">
+          <SelectTrigger className="w-[100px]">
+            <SelectValue placeholder="Currency" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="IDR">IDR</SelectItem>
+            <SelectItem value="USD">USD</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xl font-semibold">Total Equity: {currency === "IDR" ? "Rp" : "$"}{convertCurrency(equity).toLocaleString()}</span>
+      </div>
 
-    function topUp() {
-      const amount = parseFloat(document.getElementById('topup').value);
-      if (amount > 0) {
-        equity += amount;
-        localStorage.setItem('equity', equity);
-        addToHistory('Top Up', amount);
-        updatePortfolio();
-      }
-    }
+      <div className="flex space-x-4">
+        <Input type="number" placeholder="Top Up Amount" id="topup" />
+        <Button onClick={() => handleTopUp(document.getElementById("topup").value)}>Add</Button>
+      </div>
 
-    function withdrawFunds() {
-      const amount = parseFloat(document.getElementById('withdraw').value);
-      if (amount > 0 && amount <= equity) {
-        equity -= amount;
-        localStorage.setItem('equity', equity);
-        addToHistory('Withdraw', amount);
-        updatePortfolio();
-      } else {
-        alert('Insufficient funds or invalid amount');
-      }
-    }
+      <div className="flex space-x-4">
+        <Input type="number" placeholder="Withdraw Amount" id="withdraw" />
+        <Button onClick={() => handleWithdraw(document.getElementById("withdraw").value)}>Withdraw</Button>
+      </div>
 
-    function addExpense() {
-      const amount = parseFloat(document.getElementById('expenseAmount').value);
-      const note = document.getElementById('expenseNote').value;
-      if (amount > 0 && amount <= equity) {
-        equity -= amount;
-        localStorage.setItem('equity', equity);
-        addToHistory('Expense', amount, note);
-        updatePortfolio();
-      } else {
-        alert('Invalid or insufficient funds');
-      }
-    }
+      <div className="flex space-x-4">
+        <Input type="text" placeholder="Expense Description" id="expenseDesc" />
+        <Input type="number" placeholder="Amount" id="expenseAmt" />
+        <Button onClick={() => handleExpense(document.getElementById("expenseDesc").value, document.getElementById("expenseAmt").value)}>Add Expense</Button>
+      </div>
 
-    updatePortfolio();
-    renderHistory();
-  </script>
-</body>
-</html>
+      <Card>
+        <CardContent>
+          <h2 className="text-lg font-semibold mb-2">Portfolio Allocation</h2>
+          <ul className="list-disc pl-4">
+            {Object.entries(allocation).map(([asset, percent]) => (
+              <li key={asset}>{asset}: {currency === "IDR" ? "Rp" : "$"}{convertCurrency(equity * percent).toLocaleString()}</li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-lg font-semibold mb-2">Transaction History</h2>
+          <ul className="pl-4 space-y-1">
+            {history.map((tx, idx) => (
+              <li key={idx}>
+                [{tx.date}] {tx.type}: {tx.description ? tx.description + " - " : ""}{currency === "IDR" ? "Rp" : "$"}{convertCurrency(tx.amount).toLocaleString()}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-lg font-semibold mb-2">Equity Over Time</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="equity" stroke="#8884d8" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default PortfolioTracker;
