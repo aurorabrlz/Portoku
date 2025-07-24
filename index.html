@@ -1,148 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Portfolio Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-
 <body class="bg-gray-100 text-gray-800">
   <div class="max-w-3xl mx-auto p-4">
     <h1 class="text-3xl font-bold mb-6 text-center">Portfolio Tracker</h1>
 
-    <!-- Currency Switch -->
-    <div class="mb-4">
-      <label for="currencySelect" class="block font-semibold mb-1">Pilih Mata Uang:</label>
-      <select id="currencySelect" onchange="switchCurrency()" class="w-full p-2 rounded border">
-        <option value="IDR">IDR</option>
-        <option value="USD">USD</option>
-      </select>
-    </div>
+    <!-- Currency -->
+    <select id="currencySelect" onchange="render()">...</select>
 
-    <!-- Equity Input -->
-    <div class="mb-4">
-      <label for="topupInput" class="block font-semibold mb-1">Top Up:</label>
-      <input type="number" id="topupInput" placeholder="Jumlah top up" class="w-full p-2 rounded border">
-      <button onclick="addTopup()" class="bg-blue-500 text-white px-4 py-2 rounded mt-2 hover:bg-blue-600">Tambah</button>
-    </div>
+    <!-- Add Equity / Withdraw -->
+    <input id="topupInput" /><button onclick="addTrans('topup')">Top Up</button>
+    <input id="withdrawInput" /><button onclick="addTrans('withdraw')">Withdraw</button>
 
-    <!-- Portfolio Display -->
-    <div id="portfolioDisplay" class="bg-white p-4 rounded shadow mb-6"></div>
+    <!-- Edit Allocation & Emiten -->
+    <div id="allocations"></div>
+    <button onclick="saveAlloc()">Save Alokasi</button>
 
-    <!-- History Display -->
-    <div id="historyDisplay" class="bg-white p-4 rounded shadow mb-6"></div>
+    <!-- Displays -->
+    <div id="portfolioDisplay"></div>
+    <div id="historyDisplay"></div>
 
-    <!-- Backup & Import -->
-    <div class="flex gap-2 mt-4">
-      <button onclick="downloadBackup()" class="bg-green-600 text-white px-4 py-2 rounded-xl shadow hover:bg-green-700">
-        Backup Data
-      </button>
-
-      <label for="importFile" class="bg-blue-600 text-white px-4 py-2 rounded-xl shadow hover:bg-blue-700 cursor-pointer">
-        Import Data
-        <input type="file" id="importFile" accept=".json" onchange="importData(event)" class="hidden" />
-      </label>
-    </div>
+    <!-- Backup/Import -->
+    <button onclick="downloadBackup()">Backup Data</button>
+    <input type="file" onchange="importData(event)" />
   </div>
 
   <script>
     let currency = localStorage.getItem("currency") || "IDR";
+    let allocations = JSON.parse(localStorage.getItem("alloc")) || [
+      { ticker:"BBCA.JK", name:"BBCA", pct:25 },
+      { ticker:"GOOGL", name:"GOOGL", pct:25 },
+      { ticker:"BTC", name:"BTC", pct:30 },
+      { ticker:"CASH", name:"CASH", pct:20 },
+    ];
     let history = JSON.parse(localStorage.getItem("history")) || [];
 
-    // Alokasi default
-    const allocation = [
-      { name: "BBCA", percent: 0.25 },
-      { name: "GOOGL", percent: 0.25 },
-      { name: "BTC", percent: 0.30 },
-      { name: "CASH", percent: 0.20 }
-    ];
-
-    function switchCurrency() {
-      currency = document.getElementById("currencySelect").value;
-      localStorage.setItem("currency", currency);
-      render();
+    async function fetchPrice(ticker){
+      const key = 'YOUR_API_KEY';
+      const url = `https://api.twelvedata.com/price?symbol=${ticker}&apikey=${key}`;
+      const res = await fetch(url);
+      const d = await res.json();
+      return parseFloat(d.price);
     }
 
-    function addTopup() {
-      const amount = parseFloat(document.getElementById("topupInput").value);
-      if (!isNaN(amount)) {
-        history.push({ type: 'topup', amount, date: new Date().toISOString() });
-        save();
+    async function render(){
+      // build allocation edit UI
+      let html = '<table>';
+      allocations.forEach((a,i)=>{
+        html+=`<tr>
+          <td><input value="${a.ticker}" onchange="allocations[${i}].ticker=this.value"/></td>
+          <td><input value="${a.pct}" onchange="allocations[${i}].pct=parseFloat(this.value)"/></td>
+        </tr>`;
+      });
+      html+='</table>';
+      document.getElementById('allocations').innerHTML = html;
+
+      // compute total equity
+      const total = history.reduce((s,h)=> s + (h.type=='withdraw'?-h.amount:h.amount),0);
+
+      // display portfolio
+      let pfHTML = `<p><strong>Total Equity:</strong>${formatC(total)}</p>`;
+      for(const a of allocations){
+        const price = await fetchPrice(a.ticker);
+        const value = total * a.pct/100;
+        pfHTML += `<p>${a.name} (${a.ticker}) : ${formatC(value)} ≈ ${(value/price).toFixed(2)} shares @ ${formatC(price)}</p>`;
+      }
+      document.getElementById('portfolioDisplay').innerHTML = pfHTML;
+
+      // history
+      document.getElementById('historyDisplay').innerHTML = history.map(h=> `<p>${h.date} - ${h.type.toUpperCase()} - ${formatC(h.amount)}</p>`).join('');
+    }
+
+    function formatC(v){
+      return new Intl.NumberFormat(currency=="USD"?"en-US":"id-ID",{style:"currency",currency}).format(v);
+    }
+
+    function addTrans(type){
+      const val = parseFloat(document.getElementById(type + 'Input').value);
+      if(!isNaN(val)){
+        history.push({type,amount:val,date:new Date().toISOString()});
+        localStorage.setItem("history", JSON.stringify(history));
+        render();
       }
     }
 
-    function save() {
-      localStorage.setItem("history", JSON.stringify(history));
+    function saveAlloc(){
+      localStorage.setItem("alloc", JSON.stringify(allocations));
       render();
     }
 
-    function render() {
-      document.getElementById("currencySelect").value = currency;
-
-      const totalEquity = getTotalEquity();
-      let portfolioHTML = `<h2 class="text-xl font-bold mb-2">Equity</h2><p class="mb-4">${formatCurrency(totalEquity)}</p><h3 class="font-semibold mb-2">Alokasi:</h3>`;
-      allocation.forEach(item => {
-        const value = totalEquity * item.percent;
-        portfolioHTML += `<p>${item.name}: ${formatCurrency(value)} (${(item.percent * 100).toFixed(0)}%)</p>`;
-      });
-      document.getElementById("portfolioDisplay").innerHTML = portfolioHTML;
-
-      let historyHTML = '<h2 class="text-xl font-bold mb-2">History</h2>';
-      history.slice().reverse().forEach(entry => {
-        historyHTML += `<p>${entry.date.split("T")[0]} - ${entry.type} - ${formatCurrency(entry.amount)}</p>`;
-      });
-      document.getElementById("historyDisplay").innerHTML = historyHTML;
+    function downloadBackup(){
+      const d = {currency, history, allocations};
+      const blob=new Blob([JSON.stringify(d)],{type:"application/json"});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+      a.download='backup.json'; a.click();
     }
-
-    function getTotalEquity() {
-      return history.reduce((sum, item) => sum + item.amount, 0);
-    }
-
-    function formatCurrency(amount) {
-      return new Intl.NumberFormat(currency === "USD" ? "en-US" : "id-ID", {
-        style: "currency",
-        currency: currency,
-      }).format(amount);
-    }
-
-    function downloadBackup() {
-      const data = {
-        history: localStorage.getItem("history"),
-        currency: localStorage.getItem("currency"),
-      };
-
-      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `portfolio_backup_${new Date().toISOString().split("T")[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    function importData(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        try {
-          const data = JSON.parse(e.target.result);
-          if (data.history) localStorage.setItem("history", data.history);
-          if (data.currency) localStorage.setItem("currency", data.currency);
-          alert("Data berhasil diimpor!");
-          location.reload();
-        } catch (err) {
-          alert("File tidak valid atau rusak.");
-        }
-      };
-      reader.readAsText(file);
+    function importData(e){
+      const f=e.target.files[0]; 
+      const r=new FileReader();
+      r.onload=_=>{
+        const d=JSON.parse(r.result);
+        history=d.history; allocations=d.allocations; currency=d.currency;
+        localStorage.setItem("history", JSON.stringify(history));
+        localStorage.setItem("currency",currency);
+        localStorage.setItem("alloc", JSON.stringify(allocations));
+        render();
+      }
+      r.readAsText(f);
     }
 
     render();
   </script>
 </body>
-
 </html>
