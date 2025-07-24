@@ -1,63 +1,198 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Portofolio Pribadi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Portfolio Wallet</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
       padding: 2rem;
-      max-width: 600px;
-      margin: auto;
+      background-color: #f4f4f4;
     }
-    h1 {
-      text-align: center;
+    .card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    .flex {
+      display: flex;
+      justify-content: space-between;
+    }
+    .title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+    input, select {
+      padding: 0.5rem;
+      width: 100%;
+      margin-bottom: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      background: #eee;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      border-radius: 5px;
+    }
+    .total-equity {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
       color: #333;
     }
-    input {
-      width: 100%;
-      padding: 0.5rem;
-      margin: 1rem 0;
-      font-size: 1rem;
-    }
-    .result {
-      background: white;
-      padding: 1rem;
-      border-radius: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .result p {
-      font-size: 1.1rem;
+    .currency-toggle {
+      margin-bottom: 1.5rem;
     }
   </style>
 </head>
 <body>
-  <h1>Portofolio Pribadi</h1>
-  <label for="equity">Total Equity (Rp):</label>
-  <input type="number" id="equity" placeholder="Masukkan total equity" oninput="updatePortfolio()"/>
+  <h1>My Portfolio Wallet</h1>
 
-  <div class="result">
-    <p><strong>BBCA (30%):</strong> <span id="bbca">Rp 0</span></p>
-    <p><strong>GOOGL (25%):</strong> <span id="googl">Rp 0</span></p>
-    <p><strong>BTC (15%):</strong> <span id="btc">Rp 0</span></p>
-    <p><strong>CASH (30%):</strong> <span id="cash">Rp 0</span></p>
+  <div class="currency-toggle">
+    <label for="currency">Display Currency:</label>
+    <select id="currency" onchange="updatePortfolio()">
+      <option value="USD">USD ($)</option>
+      <option value="IDR">IDR (Rp)</option>
+    </select>
+  </div>
+
+  <div class="total-equity" id="totalEquity"></div>
+
+  <div class="card">
+    <div class="title">Top Up Equity</div>
+    <input type="number" id="topup" placeholder="Amount to top up...">
+    <button onclick="topUp()">Add</button>
+  </div>
+
+  <div class="card">
+    <div class="title">Withdraw Funds</div>
+    <input type="number" id="withdraw" placeholder="Amount to withdraw...">
+    <button onclick="withdrawFunds()">Withdraw</button>
+  </div>
+
+  <div class="card">
+    <div class="title">Add Expense</div>
+    <input type="text" id="expenseNote" placeholder="Expense description">
+    <input type="number" id="expenseAmount" placeholder="Amount spent...">
+    <button onclick="addExpense()">Add Expense</button>
+  </div>
+
+  <div class="card">
+    <div class="title">Portfolio Allocation</div>
+    <ul id="portfolio"></ul>
+  </div>
+
+  <div class="card">
+    <div class="title">Transaction History</div>
+    <ul id="history"></ul>
   </div>
 
   <script>
-    function formatRupiah(value) {
-      return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
+    const allocation = {
+      BBCA: 0.3,
+      GOOGL: 0.25,
+      BTC: 0.15,
+      CASH: 0.3
+    };
+
+    let equity = parseFloat(localStorage.getItem('equity')) || 0;
+    let history = JSON.parse(localStorage.getItem('history')) || [];
+
+    function formatCurrency(amount) {
+      const currency = document.getElementById('currency').value;
+      if (currency === 'IDR') {
+        return 'Rp' + amount.toLocaleString('id-ID');
+      } else {
+        return '$' + amount.toFixed(2);
+      }
     }
 
     function updatePortfolio() {
-      const equity = parseFloat(document.getElementById('equity').value) || 0;
-      document.getElementById('bbca').innerText = formatRupiah(equity * 0.3);
-      document.getElementById('googl').innerText = formatRupiah(equity * 0.25);
-      document.getElementById('btc').innerText = formatRupiah(equity * 0.15);
-      document.getElementById('cash').innerText = formatRupiah(equity * 0.3);
+      const ul = document.getElementById('portfolio');
+      ul.innerHTML = '';
+      for (const key in allocation) {
+        const value = allocation[key] * equity;
+        const li = document.createElement('li');
+        li.textContent = `${key}: ${formatCurrency(value)}`;
+        ul.appendChild(li);
+      }
+      document.getElementById('totalEquity').textContent = `Total Equity: ${formatCurrency(equity)}`;
     }
+
+    function addToHistory(type, amount, note = '') {
+      const currency = document.getElementById('currency').value;
+      const now = new Date().toLocaleString();
+      const formattedAmount = currency === 'IDR' ? 'Rp' + amount.toLocaleString('id-ID') : '$' + amount.toFixed(2);
+      const entry = note ? `${now} - ${type}: ${formattedAmount} (${note})` : `${now} - ${type}: ${formattedAmount}`;
+      history.unshift(entry);
+      localStorage.setItem('history', JSON.stringify(history));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const ul = document.getElementById('history');
+      ul.innerHTML = '';
+      history.forEach(entry => {
+        const li = document.createElement('li');
+        li.textContent = entry;
+        ul.appendChild(li);
+      });
+    }
+
+    function topUp() {
+      const amount = parseFloat(document.getElementById('topup').value);
+      if (amount > 0) {
+        equity += amount;
+        localStorage.setItem('equity', equity);
+        addToHistory('Top Up', amount);
+        updatePortfolio();
+      }
+    }
+
+    function withdrawFunds() {
+      const amount = parseFloat(document.getElementById('withdraw').value);
+      if (amount > 0 && amount <= equity) {
+        equity -= amount;
+        localStorage.setItem('equity', equity);
+        addToHistory('Withdraw', amount);
+        updatePortfolio();
+      } else {
+        alert('Insufficient funds or invalid amount');
+      }
+    }
+
+    function addExpense() {
+      const amount = parseFloat(document.getElementById('expenseAmount').value);
+      const note = document.getElementById('expenseNote').value;
+      if (amount > 0 && amount <= equity) {
+        equity -= amount;
+        localStorage.setItem('equity', equity);
+        addToHistory('Expense', amount, note);
+        updatePortfolio();
+      } else {
+        alert('Invalid or insufficient funds');
+      }
+    }
+
+    updatePortfolio();
+    renderHistory();
   </script>
 </body>
 </html>
