@@ -1,0 +1,63 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Portofolio Pribadi</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 2rem;
+      max-width: 600px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    input {
+      width: 100%;
+      padding: 0.5rem;
+      margin: 1rem 0;
+      font-size: 1rem;
+    }
+    .result {
+      background: white;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .result p {
+      font-size: 1.1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Portofolio Pribadi</h1>
+  <label for="equity">Total Equity (Rp):</label>
+  <input type="number" id="equity" placeholder="Masukkan total equity" oninput="updatePortfolio()"/>
+
+  <div class="result">
+    <p><strong>BBCA (30%):</strong> <span id="bbca">Rp 0</span></p>
+    <p><strong>GOOGL (25%):</strong> <span id="googl">Rp 0</span></p>
+    <p><strong>BTC (15%):</strong> <span id="btc">Rp 0</span></p>
+    <p><strong>CASH (30%):</strong> <span id="cash">Rp 0</span></p>
+  </div>
+
+  <script>
+    function formatRupiah(value) {
+      return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(value);
+    }
+
+    function updatePortfolio() {
+      const equity = parseFloat(document.getElementById('equity').value) || 0;
+      document.getElementById('bbca').innerText = formatRupiah(equity * 0.3);
+      document.getElementById('googl').innerText = formatRupiah(equity * 0.25);
+      document.getElementById('btc').innerText = formatRupiah(equity * 0.15);
+      document.getElementById('cash').innerText = formatRupiah(equity * 0.3);
+    }
+  </script>
+</body>
+</html>
